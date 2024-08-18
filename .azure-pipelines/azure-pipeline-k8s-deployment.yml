@@ -1,0 +1,29 @@
+parameters:
+  - name: toDeploy
+    displayName: Deploy Dashboards or Prometheus Instance
+    type: string
+    values:
+      - dashboard
+      - prometheusInstance
+      - removePrometheusInstance
+    default: prometheusInstance
+
+  - name: environment
+    displayName: Environment
+    type: string
+    values:
+      - dev
+      - tst
+      - acc
+      - prod
+
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - template: templates/stage-deploy.yml
+    parameters:
+      environment: ${{ parameters.environment }}
+      toDeploy: ${{ parameters.toDeploy }}

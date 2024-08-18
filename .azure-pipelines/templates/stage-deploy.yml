@@ -1,0 +1,58 @@
+parameters:
+  - name: environment
+    type: string
+    values:
+      - dev
+      - tst
+      - acc
+      - prod
+    default: dev
+
+  - name: dashboards
+    type: object
+    default:
+      - 01-service.yaml
+      - 02-blackbox.yaml
+      - 03-slim.yaml
+      - 04-memcpu.yaml
+      - 05-filesystems.yaml
+      - 06-winexporter.yaml
+
+  - name: toDeploy
+    type: string
+
+stages:
+  - ${{ if in(parameters.environment, 'dev', 'tst', 'acc', 'prod') }}:
+      - stage: "stage_deploy_${{ parameters.environment }}"
+        displayName: "Deploy Prometheus [${{ parameters.environment }}]"
+        jobs:
+          - job: job_lint
+            displayName: "Lint YAML files"
+            steps:
+              - script: yamllint $(System.DefaultWorkingDirectory)/prometheus/${{ parameters.environment }}
+                displayName: "Lint Prometheus YAML files"
+              - script: yamllint $(System.DefaultWorkingDirectory)/grafana/${{ parameters.environment }}
+                displayName: "Lint Grafana YAML files"
+              - script: |
+                  promtool check config $(System.DefaultWorkingDirectory)/prometheus/${{ parameters.environment }}/instance.yml
+                displayName: "Validate Prometheus config"
+
+          - job: job_deploy
+            displayName: "Deploy Prometheus resources"
+            dependsOn: job_lint
+            steps:
+              - ${{ if eq(parameters.toDeploy, 'prometheusInstance') }}:
+                  - script: |
+                      kubectl apply -f $(System.DefaultWorkingDirectory)/prometheus/${{ parameters.environment }}/instance.yml --namespace=monitoring
+                    displayName: "Deploy Prometheus configuration"
+
+              - ${{ if eq(parameters.toDeploy, 'dashboard') }}:
+                  - ${{ each dashboard in parameters.dashboards }}:
+                      - script: |
+                          kubectl apply -f $(System.DefaultWorkingDirectory)/grafana/${{ parameters.environment }}/${{ dashboard }} --namespace=monitoring
+                        displayName: "Deploy Grafana dashboard [${{ dashboard }}]"
+
+              - ${{ if eq(parameters.toDeploy, 'removePrometheusInstance') }}:
+                  - script: |
+                      kubectl delete -f $(System.DefaultWorkingDirectory)/prometheus/${{ parameters.environment }}/instance.yml --namespace=monitoring
+                    displayName: "Remove Prometheus instance"
