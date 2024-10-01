@@ -47,9 +47,12 @@ cat <<EOF > /etc/docker/daemon.json
 
        "storage-driver": "overlay2"
        }
+EOF       
 
-systemctl daemon-reload && sudo systemctl restart docker
+systemctl daemon-reload
+systemctl restart docker
 
+mkdir -p /etc/systemd/system/kubelet.service.d/
 echo 'Environment="KUBELET_EXTRA_ARGS=--fail-swap-on=false"' >> /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
 systemctl daemon-reload && sudo systemctl restart kubelet
@@ -61,3 +64,39 @@ cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+
+### Dashboard install
+echo "Enable Dashboard on Control Plane Node."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+
+echo "Add an account for Dashboard management."
+kubectl create serviceaccount -n kubernetes-dashboard admin-user
+
+cat <<EOF > rbac.yml
+# create new
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+EOF
+
+kubectl apply -f rbac.yml
+
+echo "Get security token of the account above."
+kubectl -n kubernetes-dashboard create token admin-user
+
+echo "Run kube-proxy"
+kubectl proxy
+
+echo "If access from other client hosts, set port-forwarding"
+kubectl port-forward -n kubernetes-dashboard service/kubernetes-dashboard --address 0.0.0.0 10443:443
+
+

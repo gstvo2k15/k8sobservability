@@ -4,7 +4,9 @@ Basic deployment to k8s to monitorize vm servers
 
 ## Initial prerrequisites
 
-Review k8s_setup.sh
+`https://phoenixnap.com/kb/install-kubernetes-on-ubuntu`
+
+Review `k8s_setup.sh`
 
 ```
 Step 5: Join Worker Node to Cluster
@@ -28,3 +30,7 @@ Replace [master-node-ip], [token], and [hash] with the values from the kubeadm j
 
 kubectl get nodes
 ```
+
+### Access URL
+
+`http://192.168.1.221:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/`
